@@ -131,7 +131,7 @@
 
     <!-- Main Workspace Navbar -->
     <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 flex justify-between items-center shrink-0 z-20">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="showHome()" title="Back to home">
             <div class="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-500/10">
                 <i data-lucide="table-properties" class="w-5 h-5"></i>
             </div>
@@ -173,19 +173,35 @@
                     </p>
                 </div>
 
-                <div onclick="loadBibliographyWorkspace()" class="bg-white border border-slate-200/80 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
-                    <div class="absolute inset-y-0 left-0 w-1.5 bg-emerald-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
-                    <div class="bg-emerald-50 text-emerald-600 p-4 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
-                        <i data-lucide="book-copy" class="w-5 h-5"></i>
-                    </div>
-                    <div class="space-y-1">
-                        <h4 class="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Bibliography Formatter</h4>
-                        <p class="text-xs text-slate-400 leading-relaxed">Paste an unarranged reference list and automatically sort entries by first author surname, alphabetize, and apply APA 7 hanging indent formatting.</p>
+                <div class="space-y-4">
+                    <h3 class="text-sm font-extrabold uppercase tracking-widest text-slate-500 text-center">Choose What You Need to Format</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div onclick="focusTableTemplates()" class="bg-white border border-slate-200/80 hover:border-blue-500 hover:shadow-xl hover:shadow-blue-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                            <div class="absolute inset-y-0 left-0 w-1.5 bg-blue-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                            <div class="bg-blue-50 text-blue-600 p-4 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                <i data-lucide="table-properties" class="w-5 h-5"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Table Formatter</h4>
+                                <p class="text-xs text-slate-400 leading-relaxed">Create APA 7 tables using templates, live preview, and export-ready manuscript formatting.</p>
+                            </div>
+                        </div>
+
+                        <div onclick="loadBibliographyWorkspace()" class="bg-white border border-slate-200/80 hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-500/5 rounded-2xl p-6 cursor-pointer transition-all duration-300 flex items-start gap-5 group relative overflow-hidden">
+                            <div class="absolute inset-y-0 left-0 w-1.5 bg-emerald-500 transform scale-y-0 group-hover:scale-y-100 transition-transform duration-300"></div>
+                            <div class="bg-emerald-50 text-emerald-600 p-4 rounded-xl group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300 shrink-0">
+                                <i data-lucide="book-copy" class="w-5 h-5"></i>
+                            </div>
+                            <div class="space-y-1">
+                                <h4 class="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors">Bibliography Formatter</h4>
+                                <p class="text-xs text-slate-400 leading-relaxed">Paste references to auto-arrange, apply hanging indents, and run APA metadata checks and safe auto-fixes.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
+
                 <!-- Category Blocks -->
-                <div class="space-y-8">
+                <div id="table-templates-section" class="space-y-8">
                     
                     <!-- Blank Block -->
                     <div>
@@ -533,6 +549,7 @@
         let gridData = [];
         let gridLinesEnabled = true;
         let currentMode = 'table';
+        let latestBibliographyFixNotes = [];
 
         const templates = {
             blank: [
@@ -668,6 +685,13 @@
                 updatePreview();
                 showEditor();
                 showToast(`Loaded ${type.replace('qual_', 'Qualitative ').replace('blank', 'Blank').replace('descriptive', 'Descriptives').toUpperCase()} layout.`);
+            }
+        }
+
+        function focusTableTemplates() {
+            const section = document.getElementById('table-templates-section');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }
 
@@ -911,6 +935,90 @@
             });
         }
 
+        function toNameCase(namePart) {
+            return namePart
+                .split('-')
+                .map(chunk => chunk ? chunk.charAt(0).toUpperCase() + chunk.slice(1).toLowerCase() : chunk)
+                .join('-');
+        }
+
+        function normalizeSimplePersonName(fullName) {
+            const tokens = fullName.trim().split(/\s+/).filter(Boolean);
+            if (tokens.length !== 2) {
+                return null;
+            }
+
+            const [firstRaw, lastRaw] = tokens;
+            if (!/^[A-Za-z'\-]+$/.test(firstRaw) || !/^[A-Za-z'\-]+$/.test(lastRaw)) {
+                return null;
+            }
+
+            const firstName = toNameCase(firstRaw);
+            const lastName = toNameCase(lastRaw);
+            return `${lastName}, ${firstName}`;
+        }
+
+        function formatApaAuthorList(authors) {
+            if (authors.length === 1) {
+                return authors[0];
+            }
+
+            if (authors.length === 2) {
+                return `${authors[0]}, & ${authors[1]}`;
+            }
+
+            return `${authors.slice(0, -1).join(', ')}, & ${authors[authors.length - 1]}`;
+        }
+
+        function normalizeAmbiguousAuthorList(lead) {
+            if (!lead) {
+                return null;
+            }
+
+            if (/\bet\s+al\.?/i.test(lead) || /\b[A-Z]\./.test(lead)) {
+                return null;
+            }
+
+            const unifiedLead = lead.replace(/\s+(?:and|&)\s+/ig, ', ');
+            const rawAuthors = unifiedLead.split(',').map(part => part.trim()).filter(Boolean);
+            if (rawAuthors.length === 0) {
+                return null;
+            }
+
+            const normalizedAuthors = rawAuthors.map(normalizeSimplePersonName);
+            if (normalizedAuthors.some(author => !author)) {
+                return null;
+            }
+
+            return formatApaAuthorList(normalizedAuthors);
+        }
+
+        function normalizeAmbiguousLeadAuthor(reference) {
+            const yearMatch = reference.match(/\(\s*(?:\d{4}|n\.d\.)\s*[a-z]?\s*\)/i);
+            if (!yearMatch || yearMatch.index === undefined) {
+                return { fixed: reference, notes: [] };
+            }
+
+            const lead = reference.slice(0, yearMatch.index).trim();
+            const remainder = reference.slice(yearMatch.index).trimStart();
+
+            const correctedLead = normalizeAmbiguousAuthorList(lead);
+            if (!correctedLead) {
+                return { fixed: reference, notes: [] };
+            }
+
+            const fixed = `${correctedLead} ${remainder}`.replace(/\s+/g, ' ').trim();
+
+            if (fixed === reference) {
+                return { fixed: reference, notes: [] };
+            }
+
+            return {
+                fixed,
+                notes: [`Author name order corrected: "${lead}" -> "${correctedLead}".`]
+            };
+        }
+
         function normalizeDoiAndUrlFormatting(reference) {
             let fixed = reference;
 
@@ -954,10 +1062,17 @@
 
         function applyBibliographyAutoFix(reference) {
             let fixed = normalizeReferenceEntry(reference);
+            const notes = [];
+
+            const authorNormalization = normalizeAmbiguousLeadAuthor(fixed);
+            fixed = authorNormalization.fixed;
+            notes.push(...authorNormalization.notes);
+
             fixed = normalizeYearAndInitialsFormatting(fixed);
             fixed = normalizeDoiAndUrlFormatting(fixed);
             fixed = fixed.replace(/\s+/g, ' ').trim();
-            return fixed;
+
+            return { fixed, notes };
         }
 
         function isLikelySentenceCase(titleText) {
@@ -1044,6 +1159,22 @@
                 return;
             }
 
+            if (latestBibliographyFixNotes.length) {
+                const fixSummary = document.createElement('p');
+                fixSummary.className = 'font-semibold text-emerald-700';
+                fixSummary.innerText = `Auto-corrections applied: ${latestBibliographyFixNotes.length}`;
+                target.appendChild(fixSummary);
+
+                const fixList = document.createElement('ul');
+                fixList.className = 'issue-list text-emerald-800';
+                latestBibliographyFixNotes.forEach(note => {
+                    const li = document.createElement('li');
+                    li.innerText = note;
+                    fixList.appendChild(li);
+                });
+                target.appendChild(fixList);
+            }
+
             const analyzed = entries.map(entry => ({ entry, issues: analyzeReferenceIssues(entry) }));
             const warningEntries = analyzed.filter(item => item.issues.length > 0);
 
@@ -1098,7 +1229,9 @@
         function formatBibliography() {
             const rawText = document.getElementById('bibliography-input').value;
             const parsedEntries = parseBibliographyEntries(rawText);
-            const fixedEntries = parsedEntries.map(applyBibliographyAutoFix);
+            const fixedResults = parsedEntries.map(applyBibliographyAutoFix);
+            const fixedEntries = fixedResults.map(result => result.fixed);
+            latestBibliographyFixNotes = fixedResults.flatMap(result => result.notes);
             const sortedEntries = sortBibliographyEntries(fixedEntries);
             updateBibliographyPreview(sortedEntries);
             renderBibliographyIssues(sortedEntries);
